@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center min-vh-100 align-items-center py-4">
+  <div class="col-md-4 col-sm-8 col-12">
+    <div class="card shadow-lg border-0">
+      <div class="card-header bg-gradient-primary text-white text-center py-4">
+        <div class="mb-3">
+          <i class="fas fa-user-shield fa-3x"></i>
+        </div>
+        <h3 class="mb-0 fw-bold">Teacher Login</h3>
+        <small class="opacity-75">Face Recognition Attendance System</small>
+      </div>
+      <div class="card-body p-4 p-sm-5">
+        <form method="POST" action="{{ url_for('index') }}">
+          <div class="mb-4">
+            <label class="form-label fw-bold fs-5">Teacher ID</label>
+            <input type="text" name="teacher_id" class="form-control form-control-lg" required 
+                   autocomplete="username" placeholder="Enter ID">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-bold fs-5">Password</label>
+            <input type="password" name="password" class="form-control form-control-lg" required 
+                   autocomplete="current-password" placeholder="Enter Password">
+          </div>
+          <button type="submit" class="btn btn-primary w-100 fw-bold py-3 fs-5">
+            <i class="fas fa-sign-in-alt me-2"></i>Login
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.card {
+  border-radius: 20px;
+}
+</style>
+{% endblock %}

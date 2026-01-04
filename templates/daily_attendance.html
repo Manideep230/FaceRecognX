@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>📋 Daily Attendance</h3>
+    <div>
+      <input type="date" id="datePicker" class="form-control form-control-sm d-inline-block w-auto me-2" 
+             value="{{ selected_date }}" onchange="changeDate()">
+      <a href="{{ url_for('daily_attendance') }}" class="btn btn-outline-primary btn-sm">
+        Today
+      </a>
+    </div>
+  </div>
+
+  {% if attendance %}
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h6 class="mb-0">
+        <i class="fas fa-list me-2"></i>
+        Attendance on {{ selected_date }} ({{ attendance|length }} students)
+      </h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Section</th>
+              <th>Time</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for record in attendance %}
+            <tr>
+              <td class="fw-bold">{{ record.student_id }}</td>
+              <td>{{ record.name }}</td>
+              <td>
+                <span class="badge bg-secondary">{{ record.section }}</span>
+              </td>
+              <td>
+                <span class="badge bg-success">{{ record.time }}</span>
+              </td>
+              <td>{{ record.date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info text-center p-5">
+    <i class="fas fa-calendar-times fa-3x mb-3 text-muted d-block"></i>
+    <h5>No attendance records found</h5>
+    <p class="mb-0">for <strong>{{ selected_date }}</strong></p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function changeDate() {
+  const date = document.getElementById('datePicker').value;
+  if (date) {
+    window.location.href = `/teacher/daily_attendance?date=${date}`;
+  }
+}
+
+// Set max date to today
+document.getElementById('datePicker').max = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

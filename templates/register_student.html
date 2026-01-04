@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Register Student</h3>
+<div class="row">
+  <div class="col-md-5">
+    <form id="studentForm">
+      <div class="mb-3">
+        <label class="form-label">Student ID</label>
+        <input type="text" id="student_id" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input type="text" id="name" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Section</label>
+        <input type="text" id="section" class="form-control" required>
+      </div>
+      <div class="alert alert-info">
+        Capture will automatically take <strong>120 frames</strong> (1 per second). 
+        Face detection will crop JUST THE FACE (no background).
+      </div>
+      <button type="button" id="startBtn" class="btn btn-secondary">Start Capture (120s)</button>
+      <button type="button" id="submitBtn" class="btn btn-primary ms-2" disabled>Submit</button>
+    </form>
+  </div>
+
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header">
+        Webcam - Face Only Capture (120 frames @ 1fps)
+      </div>
+      <div class="card-body">
+        <video id="video" width="100%" height="330" autoplay muted></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <canvas id="faceCanvas" width="320" height="240" style="border: 2px solid #007bff; margin-top: 10px;"></canvas>
+        <p class="mt-2">
+          Captured: <span id="count">0/120</span> | Time: <span id="timer">0s</span>
+        </p>
+        <p id="status" class="text-muted"></p>
+        <div id="faceStatus" class="small text-info"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
+
+<script>
+let stream = null;
+let capturedFaces = [];  // Store only FACE crops
+let capturing = false;
+let startTime = 0;
+let faceDetector = null;
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const faceCanvas = document.getElementById("faceCanvas");
+const countSpan = document.getElementById("count");
+const timerSpan = document.getElementById("timer");
+const statusP = document.getElementById("status");
+const faceStatus = document.getElementById("faceStatus");
+const startBtn = document.getElementById("startBtn");
+const submitBtn = document.getElementById("submitBtn");
+
+const MAX_FRAMES = 120;
+const REQUIRED_FACES = 30;
+
+async function loadFaceDetector() {
+  statusP.textContent = "Loading face detector...";
+  faceDetector = await blazeface.load();
+  statusP.textContent = "Face detector ready. Click Start Capture.";
+}
+
+loadFaceDetector();
+
+startBtn.onclick = async () => {
+  if (!stream) {
+    stream = await navigator.mediaDevices.getUserMedia({video: true});
+    video.srcObject = stream;
+  }
+  if (!faceDetector) {
+    alert("Face detector still loading...");
+    return;
+  }
+  
+  capturedFaces = [];
+  capturing = true;
+  startTime = Date.now();
+  countSpan.textContent = "0/" + MAX_FRAMES;
+  timerSpan.textContent = "0s";
+  statusP.textContent = "Capturing faces only (1 per second)... move slowly LEFT, RIGHT, UP, DOWN";
+  startBtn.disabled = true;
+  
+  captureFaces();
+};
+
+async function captureFaces() {
+  if (!capturing || capturedFaces.length >= MAX_FRAMES) {
+    if (capturedFaces.length >= MAX_FRAMES) {
+      capturing = false;
+      statusP.textContent = `${MAX_FRAMES} face crops captured! Ready to submit.`;
+      submitBtn.disabled = false;
+      startBtn.disabled = false;
+      startBtn.textContent = "Restart Capture";
+    }
+    return;
+  }
+
+  // Update timer
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  timerSpan.textContent = elapsed + "s";
+
+  if (elapsed % 1 === 0 && capturedFaces.length < MAX_FRAMES && video.readyState === 4) {
+    // Capture frame and detect face
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+    
+    const faces = await faceDetector.estimateFaces(video, false);
+    
+    if (faces.length > 0) {
+      const face = faces[0]; // Take largest face
+      
+      // Crop just the face (no background)
+      const faceX = Math.max(0, face.topLeft[0] - 20);
+      const faceY = Math.max(0, face.topLeft[1] - 20);
+      const faceW = Math.min(video.videoWidth - faceX, face.bottomRight[0] - faceX + 40);
+      const faceH = Math.min(video.videoHeight - faceY, face.bottomRight[1] - faceY + 40);
+      
+      // Draw face crop preview
+      const faceCtx = faceCanvas.getContext("2d");
+      faceCtx.clearRect(0, 0, 320, 240);
+      faceCtx.drawImage(
+        video, 
+        faceX, faceY, faceW, faceH,
+        0, 0, 320, 240
+      );
+      
+      // Capture face crop as dataURL
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = faceW;
+      tempCanvas.height = faceH;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.drawImage(video, faceX, faceY, faceW, faceH, 0, 0, faceW, faceH);
+      
+      const faceDataUrl = tempCanvas.toDataURL("image/jpeg", 0.9);
+      capturedFaces.push(faceDataUrl);
+      
+      countSpan.textContent = capturedFaces.length + "/" + MAX_FRAMES;
+      faceStatus.textContent = `Face #${capturedFaces.length} captured (${faceW}x${faceH}px)`;
+      
+      // Visual feedback
+      faceStatus.className = "small text-success fw-bold";
+    } else {
+      faceStatus.textContent = "No face detected, waiting...";
+      faceStatus.className = "small text-warning";
+    }
+  }
+  
+  setTimeout(captureFaces, 1000); // 1 frame per second
+}
+
+submitBtn.onclick = async () => {
+  const student_id = document.getElementById("student_id").value.trim();
+  const name = document.getElementById("name").value.trim();
+  const section = document.getElementById("section").value.trim();
+
+  if (!student_id || !name || !section) {
+    alert("Fill all fields");
+    return;
+  }
+  if (capturedFaces.length < REQUIRED_FACES) {
+    alert(`Need at least ${REQUIRED_FACES} face crops. Got ${capturedFaces.length}.`);
+    return;
+  }
+
+  submitBtn.disabled = true;
+  statusP.textContent = "Processing 120 face encodings on server...";
+
+  try {
+    const res = await fetch("/teacher/register_student", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        student_id,
+        name,
+        section,
+        images: capturedFaces  // Only face crops, no background
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert(data.msg);
+      // Reset
+      capturedFaces = [];
+      countSpan.textContent = "0/120";
+      timerSpan.textContent = "0s";
+      statusP.textContent = "";
+      faceStatus.textContent = "";
+      submitBtn.disabled = true;
+      startBtn.disabled = false;
+      startBtn.textContent = "Start Capture (120s)";
+    } else {
+      alert(data.msg || "Error");
+    }
+  } catch (e) {
+    alert("Network error: " + e.message);
+    console.error(e);
+  }
+  submitBtn.disabled = false;
+};
+</script>
+{% endblock %}
