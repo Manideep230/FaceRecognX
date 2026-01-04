@@ -1,0 +1,9 @@
+opencv-python
+face-recognition
+numpy
+pymongo
+dnspython
+flask
+flask-bcrypt
+certifi
+pillow
